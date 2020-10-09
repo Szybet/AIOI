@@ -1,11 +1,36 @@
 #!/bin/python3
+import os
 import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument('integers', metavar='N', type=int, nargs='+',
-                    help='an integer for the accumulator')
-parser.add_argument('--sum', dest='accumulate', action='store_const',
-                    const=sum, default=max,
-                    help='sum the integers (default: find the max)')
+import sys
+COM=0
+def COM_func():
+    print("no")
+    COM=1
+def CPU_func():
+    if COM==1:
+        bashcpu = os.popen('htop')
 
-args = parser.parse_args()
-print(args.accumulate(args.integers))
+    bashcpu = os.popen('ip a')
+    cpu_output = bashcpu.read()
+    print(cpu_output)
+def NET_func():
+    print("NET")
+parser = argparse.ArgumentParser(prog='AIOI', description='One command for all linux system info',)
+subparsers = parser.add_subparsers()
+
+parser_COM_func = subparsers.add_parser('simple', help='makes all informations pure linux commands')
+parser_COM_func.set_defaults(func=COM_func)
+parser_COM_func.add_argument('cpu' #http://zetcode.com/python/argparse/)
+parser_CPU_func = subparsers.add_parser('cpu', help='CPU informations')
+parser_CPU_func.set_defaults(func=CPU_func)
+
+parser_NET_func = subparsers.add_parser('net', help='Network informations')
+parser_NET_func.set_defaults(func=NET_func)
+
+if len(sys.argv) <= 1:
+    sys.argv.append('--help')
+
+options = parser.parse_args()
+options.func()
+
+# add a argument to aioi to make pure linux commands, with -p
