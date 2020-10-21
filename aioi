@@ -4,7 +4,7 @@ simple=0
 # Functions for arguments
 function help_f (){
     printf "Aioi, one command for all linux system info\n"
-    printf "Usage:\n"
+    printf "        Usage:\n"
     printf "        help | -h | --help : show help message\n"
     printf "        ram : show ram informations, usage\n"
    
@@ -35,7 +35,9 @@ function ram_f () {
     fi
 return 0
 }
-
+if [[ -z ${1} ]];then
+        help_f
+fi
 while  [ ! -z "$2" ]; do
     if [[ "$2" == "-e" ]];then
         explain=1
@@ -53,9 +55,10 @@ while  [ ! -z "$3" ]; do
     fi
 shift
 done
-
 while  [ ! -z "$1" ]; do
     if [[ "$1" == "help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]];then
+        help_f
+    elif [[ -z ${1} ]];then
         help_f
     elif [[ "$1" == "ram" ]];then
         ram_f
