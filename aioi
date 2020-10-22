@@ -1,67 +1,112 @@
 #!/bin/bash
 explain=0
 simple=0
+lessc=0
 # Functions for arguments
 function help_f (){
     printf "Aioi, one command for all linux system info\n"
     printf "        Usage:\n"
     printf "        help | -h | --help : show help message\n"
     printf "        ram : show ram informations, usage\n"
+    printf "        cpu : show cpu informations, usage\n"   
    
     printf "\n"
-    printf "        additional arguments, passed after the rest:\n"
-    printf "        --explain | -e : explain from there this command has this information, show the original command\n"
-    printf "        --simple | -s : Make the output simpler and beautiful\n"
+    printf "        additional arguments, passed after the first argument:\n"
+    printf "        -e : explain from there this command has this information, show the original command\n"
+    printf "        -s : Make the output simpler and beautiful\n"
+    printf "        -l : use the less command to not litter your terminal\n"
+
 return 0
 }
-
-function ram_f () {
-    printf "RAM usage:\n"
-    free -h -w
-    printf 'More specific informations about usage are avaible under "less /proc/meminfo" command'
-    printf "\n"  
-    printf "\n"    
-    printf "RAM informations:"
-    printf "\n"  
-    if [ "$EUID" -ne 0 ];then 
-        echo "Please run as root to get this informations"
-        exit
-    elif  ! command -v dmidecode &> /dev/null;then
-        echo "dmidecode command could not be found, install the package for it"
-        exit
-    else
-        dmidecode --type memory
-        exit
-    fi
+function cpu_f () {
+    printf "CPU Usage:\n"
+    #use top or something
+    
+    printf "\n"
+    printf "CPU informations:\n"
+    lscpu
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 return 0
+}
+function ram_f () {
+    if [[ "$explain" == "1" ]];then
+        printf "RAM usage command:\n"
+        printf "free -h -w\n"
+        printf "for RAM informations:\n" 
+        printf "RAM usage:\n"
+        printf "dmidecode --type memory\n"
+        fi
+    if [[ "$explain" == "0" ]];then
+        free -h -w
+        printf 'More specific informations about usage are avaible under "less /proc/meminfo" command'
+        printf "\n"  
+        printf "\n"    
+        printf "RAM informations:"
+        printf "\n"  
+        if [ "$EUID" -ne 0 ];then 
+            echo "Please run as root to get this informations"
+            exit
+        elif  ! command -v dmidecode &> /dev/null;then
+            echo "dmidecode command could not be found, install the package for it"
+            exit
+        else
+            dmidecode --type memory
+            exit
+        fi
+    fi
+    return 0
 }
 if [[ -z ${1} ]];then
         help_f
 fi
-while  [ ! -z "$2" ]; do
-    if [[ "$2" == "-e" ]];then
+if [[ "$2" == "-e" ]];then
         explain=1
-    elif [[ "$2" == "-s" ]];then
+elif [[ "$2" == "-s" ]];then
         simple=1
-    fi
-shift
-done
+elif  [[ "$2" == "-l" ]];then
+        lessc=1
+fi
 
-while  [ ! -z "$3" ]; do
-    if [[ "$3" == "-e" ]];then
-        explain=1
-    elif [[ "$3" == "-s" ]];then
-        simple=1
-    fi
-shift
-done
+if [[ "$3" == "-e" ]];then
+    explain=1
+elif [[ "$3" == "-s" ]];then
+    simple=1
+elif  [[ "$3" == "-l" ]];then
+        lessc=1
+fi
 while  [ ! -z "$1" ]; do
     if [[ "$1" == "help" ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]];then
-        help_f
-    elif [[ -z ${1} ]];then
-        help_f
+        if [[ "$lessc" == "1" ]];then
+            help_f | less
+        else
+            help_f
+        fi
     elif [[ "$1" == "ram" ]];then
-        ram_f
+        if [[ "$lessc" == "1" ]];then
+            ram_f | less
+        else
+            ram_f
+        fi
+    elif [[ "$1" == "cpu" ]];then
+        if [[ "$lessc" == "1" ]];then
+            cpu_f | less
+        else
+            cpu_f
+        fi    
 
 
 
@@ -81,4 +126,3 @@ while  [ ! -z "$1" ]; do
     fi
 shift
 done
-
