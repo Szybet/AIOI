@@ -19,27 +19,33 @@ function help_f (){
 return 0
 }
 function cpu_f () {
-    printf "CPU Usage:\n"
-    #use top or something
-    
+    if [[ "$explain" == "0" ]];then
+    printf "To show cpu usage use the htop command\n"
+    printf "To show informations about the usage, use the the mpstat –P ALL command\n"
+    printf "How to read the mpstat command:\n"
+    printf "\n"
+    printf "usr –  cpu usage at the user level
+nice –  cpu usage for user processes labeled “nice”
+sys –  cpu usage at the system (Linux kernel) level
+iowait –  cpu usage idling waiting on a disk read/write
+irq –  cpu usage handling hardware interrupts
+soft –  cpu usage handing software interrupts
+steal –  cpu usage being forced to wait for a hypervisor handling other virtual processors
+guest –  cpu usage spent running a virtual processor
+idle –  cpu usage on idle time (no processes, and not waiting on a disk read/write)\n"
     printf "\n"
     printf "CPU informations:\n"
     lscpu
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    fi
+    if [[ "$explain" == "1" ]];then
+    printf "Used information command:\n"
+    printf "lscpu\n"
+    printf "More commands for more informations:\n"
+    printf "cat /proc/cpuinfo\n"
+    printf "dmidecode --type processor\n"
+    printf "inxi -C\n"
+    printf "lshw -class processor\n"
+    fi
 return 0
 }
 function ram_f () {
