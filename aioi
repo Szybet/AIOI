@@ -9,6 +9,7 @@ function help_f (){
     printf "        help | -h | --help : show help message\n"
     printf "        ram : show ram informations, usage\n"
     printf "        cpu : show cpu informations, usage\n"   
+    printf "        gpu : show gpu informations, usage\n"
    
     printf "\n"
     printf "        additional arguments, passed after the first argument:\n"
@@ -16,6 +17,77 @@ function help_f (){
     printf "        -s : Make the output simpler and beautiful\n"
     printf "        -l : use the less command to not litter your terminal\n"
 
+return 0
+}
+
+function gpu_f () {
+    if [[ "$explain" == "1" ]];then
+        printf "Used information commands:\n"
+        printf "lspci | grep ' VGA ' | cut -d\" \" -f 1 | xargs -i lspci -v -k -s {}\n"
+        printf "glxinfo -B\n"
+        printf "Other information commands:\n"
+        printf "sudo lshw -numeric -C display\n"
+        printf "inxi -G\n"
+        printf "All usage commands:\n"
+        printf "For nvidia cards:\n"
+        printf "nvidia-smi\n"
+        printf "nvtop\n"
+        printf "For radeon cards:\n"
+        printf "radeontop\n"
+        printf "aticonfig --odgc --odgt\n"
+        printf "For intel cards:\n"
+        printf "sudo intel_gpu_top\n"
+        printf "intel_gpu_time (Launch a application)\n"
+        printf "Benchmark / stress command:\n"
+        printf "glxgears\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+        printf "GPU informations:\n"
+        lspci | grep ' VGA ' | cut -d" " -f 1 | xargs -i lspci -v -k -s {}
+        printf "Opengl and mesa informations:\n"
+        if [[ "$explain" == "3" ]];then
+        :
+        elif ! command -v glxinfo &> /dev/null ;then
+            printf "glxinfo command not found, install the package for it\n"
+        else
+            glxinfo -B
+        fi
+        printf "Specific GPU usage commands:\n"
+        gpuinfo=$(lspci | grep ' VGA ' | cut -d" " -f 1 | xargs -i lspci -v -k -s {})
+        yesnvidia=$(echo $gpuinfo | grep -oih 'nvidia')
+        yesamd=$(echo $gpuinfo | grep -oih 'amd')
+        yesamd=$(echo $gpuinfo | grep -oih 'ati')
+        yesintel=$(echo $gpuinfo | grep -oih 'intel')
+        if [[ -z ${yesnvidia} ]];then
+            :
+        else
+            printf "For nvidia cards:\n"
+            printf "nvidia-smi\n"
+            printf "nvtop\n"
+        fi
+        if [[ -z ${yesnamd} ]];then
+            :
+        else
+            if [[ -z ${yesnvidia} ]];then
+                printf "\n"
+            fi
+            printf "For radeon cards:\n"
+            printf "radeontop\n"
+            printf "aticonfig --odgc --odgt\n"
+        fi
+        if [[ -z ${yesintel} ]];then
+            :
+        else
+            if [[ -z ${yesnvidia} ]];then
+                :
+            else
+                printf "\n"
+            fi
+            printf "For intel cards:\n"
+            printf "sudo intel_gpu_top\n"
+            printf "intel_gpu_time (Launch a application)\n"
+        fi
+    fi
 return 0
 }
 function cpu_f () {
@@ -45,9 +117,12 @@ idle –  cpu usage on idle time (no processes, and not waiting on a disk read/w
     printf "dmidecode --type processor\n"
     printf "inxi -C\n"
     printf "lshw -class processor\n"
+    printf "benchmark / stress command:\n"
+    printf "stress --cpu $(nproc)\n"
     fi
 return 0
 }
+
 function ram_f () {
     if [[ "$explain" == "1" ]];then
         printf "RAM usage command:\n"
@@ -64,7 +139,7 @@ function ram_f () {
         printf "RAM informations:"
         printf "\n"  
         if [ "$EUID" -ne 0 ];then 
-            echo "Please run as root to get this informations"
+            printf "Please run as root to get this informations"
             exit
         elif  ! command -v dmidecode &> /dev/null;then
             echo "dmidecode command could not be found, install the package for it"
@@ -112,6 +187,12 @@ while  [ ! -z "$1" ]; do
             cpu_f | less
         else
             cpu_f
+        fi    
+    elif [[ "$1" == "gpu" ]];then
+        if [[ "$lessc" == "1" ]];then
+            gpu_f | less
+        else
+            gpu_f
         fi    
 
 
