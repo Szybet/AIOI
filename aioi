@@ -19,7 +19,29 @@ function help_f (){
 
 return 0
 }
-
+function screen_f () {
+    if [[ "$explain" == "0" ]];then
+        printf "Show Monitor informations:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+            elif ! command -v parse-edid &> /dev/null ;then
+                printf "parse-edid command not found, install the package for it\n"
+            else
+            ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
+        fi
+    fi
+    if [[ "$explain" == "1" ]];then
+        printf "Used command:\n"
+        printf 'ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}\n'
+        printf "Other possibly usefull commands for screen informations:\n"
+        printf 'grep -i "monitor name" /var/log/syslog\n'
+        printf "cat /sys/class/drm/card0-eDP-1/edid | edid-decode\n"
+        printf "xrandr --prop\n"
+        printf "xrandr --verbose\n"
+        printf "lshw -c display\n"
+    fi
+return 0
+}
 function gpu_f () {
     if [[ "$explain" == "1" ]];then
         printf "Used information commands:\n"
@@ -193,6 +215,12 @@ while  [ ! -z "$1" ]; do
             gpu_f | less
         else
             gpu_f
+        fi    
+    elif [[ "$1" == "screen" ]];then
+        if [[ "$lessc" == "1" ]];then
+            screen_f | less
+        else
+            screen_f
         fi    
 
 
