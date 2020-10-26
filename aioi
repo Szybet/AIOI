@@ -10,6 +10,7 @@ function help_f (){
     printf "        ram : show ram informations, usage\n"
     printf "        cpu : show cpu informations, usage\n"   
     printf "        gpu : show gpu informations, usage\n"
+    printf "        screen : show screen informations\n"
    
     printf "\n"
     printf "        additional arguments, passed after the first argument:\n"
@@ -19,15 +20,85 @@ function help_f (){
 
 return 0
 }
+function network_f () {
+    if [[ "$explain" == "0" ]];then
+        printf "Network interfaces informations:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+            elif ! command -v ifconfig &> /dev/null ;then
+                printf "command ifconfig not found, using other commands, for better informations install the package\n"
+                ip a
+            else
+                ifconfig
+            fi
+            printf "show setted DNS servers:\n"
+            grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf
+            printf "Single test whot DNS server will be used:\n"
+            dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1
+            printf "\n"
+            printf "NTP status, systemd based:\n"
+            timedatectl status
+            printf "used NTP servers, systemd based:\n"
+            cat /etc/systemd/timesyncd.conf | grep org
+            printf "Full config at /etc/systemd/timesyncd.conf\n"
+            if [[ "$explain" == "3" ]];then
+                :
+            elif ! command -v ntpq &> /dev/null ;then
+                :
+            else
+                printf "NTP status, ntpq command\n"
+                ntpq -pn
+            fi
+            printf "\n"
+            printf "Show ARP table:\n"
+            arp -e
+            printf "\n"
+            printf "dhcp info:\n"
+            systemctl status dhcpcd
+            cat /var/lib/dhcp/dhclient.leases
+            printf "\n"
+            printf "Show routes\n"
+            ip route
+            printf "\n"
+            printf "Show open ports:\n"
+            lsof -i
+            if [ "$EUID" -ne 0 ];then 
+                printf "Running as root will show open ports by other users\n"
+            else
+                :
+            fi
+    fi
+    if [[ "$explain" == "1" ]];then
+        printf "Used commands:\n"
+        printf "ip a\n"
+        printf "ifconfig\n"
+        printf "grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf\n"
+        printf "dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1\n"
+        printf "timedatectl status\n"
+        printf "cat /etc/systemd/timesyncd.conf | grep org\n"
+        printf "ntpq -pn\n"
+        printf "arp -e\n"
+        printf "systemctl status dhcpcd\n"
+        printf "cat /var/lib/dhcp/dhclient.leases\n"
+        printf "ip route\n"
+        printf "lsof -i\n"
+        printf "Other usefull commands:\n"
+        printf "systemctl status NetworkManager\n"
+        printf "netstat -rn\n"
+        printf "ntpstat\n"
+    fi
+return 0
+}
+
 function screen_f () {
     if [[ "$explain" == "0" ]];then
         printf "Show Monitor informations:\n"
         if [[ "$explain" == "3" ]];then
-            :
+                :
             elif ! command -v parse-edid &> /dev/null ;then
                 printf "parse-edid command not found, install the package for it\n"
             else
-            ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
+                ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
         fi
     fi
     if [[ "$explain" == "1" ]];then
@@ -42,6 +113,7 @@ function screen_f () {
     fi
 return 0
 }
+
 function gpu_f () {
     if [[ "$explain" == "1" ]];then
         printf "Used information commands:\n"
@@ -221,6 +293,12 @@ while  [ ! -z "$1" ]; do
             screen_f | less
         else
             screen_f
+        fi    
+    elif [[ "$1" == "network" ]];then
+        if [[ "$lessc" == "1" ]];then
+            network_f | less
+        else
+            network_f
         fi    
 
 
