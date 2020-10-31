@@ -10,7 +10,9 @@ function help_f (){
     printf "        ram : show ram informations, usage\n"
     printf "        cpu : show cpu informations, usage\n"   
     printf "        gpu : show gpu informations, usage\n"
+    printf "        network : show network informations\n"
     printf "        screen : show screen informations\n"
+    printf "        disks : show disks informations\n"
    
     printf "\n"
     printf "        additional arguments, passed after the first argument:\n"
@@ -18,6 +20,81 @@ function help_f (){
     printf "        -s : Make the output simpler and beautiful\n"
     printf "        -l : use the less command to not litter your terminal\n"
 
+return 0
+}
+function disks_f () {
+    if [[ "$explain" == "1" ]];then
+        printf "used commands\n"
+        printf "lsblk --output NAME,SIZE,FSUSED,TYPE,MOUNTPOINT,FSTYPE\n"
+        printf "lsblk --output NAME,UUID\n"
+        printf "lsblk --output NAME,LABEL,PARTLABEL,PARTFLAGS\n"
+        printf "sudo hdparm -I /dev/sda\n"
+        printf "lshw -class disk -class storage\n"
+        printf "lshw -short -C disk\n"
+        printf "sudo iostat --pretty --human\n"
+        printf "Disk health command ( smartctl )\n"
+        printf "check support for smartcl for a disk:\n"
+        printf "smartctl -i /dev/sda\n"
+        printf "to make tests:\n"
+        printf "smartctl --test=short /dev/sda\n"
+        printf "or smartctl --test=long /dev/sda\n"
+        printf "to get the output of the test:\n"
+        printf "smartctl -a /dev/sda\n"
+        printf "For checking badblocks:\n"
+        printf "badblocks -nvs /dev/sdx\n"
+        printf "Other helpful commands:\n"
+        printf "cat /etc/fstab\n"
+        printf "fdisk -l\n"
+        printf "iotop -o\n"
+        printf "ioping /dev/sdx\n"
+        printf "Benchmarking:\n"
+        printf "sudo hdparm -tT /dev/sdx\n"
+        printf "dd if=/dev/zero of=benchfile bs=4k count=200000 && sync; rm benchfile\n"
+        printf "dd if=/dev/zero of=/dev/null && sync\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+                printf "Show information about the partitions\n"
+                lsblk --output NAME,SIZE,FSUSED,TYPE,MOUNTPOINT,FSTYPE
+                printf "\n"
+                printf "Show partitions UUID\n"
+                lsblk --output NAME,UUID
+                printf "\n"
+                printf "Show partition label and flags\n"
+                lsblk --output NAME,LABEL,PARTLABEL,PARTFLAGS
+                printf "\n"
+                if [ "$EUID" -ne 0 ];then 
+                printf "To show disk informations, please run as root\n"
+                else
+                    if [[ "$explain" == "3" ]];then
+                        :
+                    elif ! command -v lshw &> /dev/null ;then
+                        printf "command lshw not found, using other commands, for better informations install the package\n"
+                        if [[ "$explain" == "3" ]];then
+                            :
+                        elif ! command -v lshw &> /dev/null ;then
+                            printf "command hdparm not found, using other commands, for better informations install the package\n"
+                        else
+                            sudo hdparm -I /dev/sda
+                        fi
+                    else
+                        printf "Show disk informations\n"
+                        lshw -class disk -class storage
+                        printf "\n"
+                        printf "Show simple disk names\n"
+                        lshw -short -C disk
+                    fi
+                printf "\n"
+                printf "Show disk read writes in real time\n"
+                if [[ "$explain" == "3" ]];then
+                        :
+                    elif ! command -v iostat &> /dev/null ;then
+                        printf "command iostat not found, install the iotop package\n"
+                    else
+                        sudo iostat --pretty --human
+                fi
+            printf "For disk health, look at the -e argument\n"
+        fi
+    fi
 return 0
 }
 function network_f () {
@@ -224,6 +301,7 @@ function ram_f () {
         printf "for RAM informations:\n" 
         printf "RAM usage:\n"
         printf "dmidecode --type memory\n"
+        printf "cat /proc/sys/vm/swappiness\n"
         fi
     if [[ "$explain" == "0" ]];then
         free -h -w
@@ -234,14 +312,15 @@ function ram_f () {
         printf "\n"  
         if [ "$EUID" -ne 0 ];then 
             printf "Please run as root to get this informations"
-            exit
         elif  ! command -v dmidecode &> /dev/null;then
-            echo "dmidecode command could not be found, install the package for it"
-            exit
+            echo "dmidecode command could not be found, install the package for it\n"
         else
             dmidecode --type memory
-            exit
         fi
+        printf "\n"
+        printf "\n"
+        printf "Setted swappiness:\n"
+        cat /proc/sys/vm/swappiness
     fi
     return 0
 }
@@ -299,6 +378,12 @@ while  [ ! -z "$1" ]; do
             network_f | less
         else
             network_f
+        fi    
+    elif [[ "$1" == "disks" ]];then
+        if [[ "$lessc" == "1" ]];then
+           disks_f | less
+        else
+            disks_f
         fi    
 
 
