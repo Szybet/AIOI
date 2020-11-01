@@ -1,27 +1,103 @@
 #!/bin/bash
 explain=0
-simple=0
 lessc=0
-# Functions for arguments
-function help_f (){
-    printf "Aioi, one command for all linux system info\n"
-    printf "        Usage:\n"
-    printf "        help | -h | --help : show help message\n"
-    printf "        ram : show ram informations, usage\n"
-    printf "        cpu : show cpu informations, usage\n"   
-    printf "        gpu : show gpu informations, usage\n"
-    printf "        network : show network informations\n"
-    printf "        screen : show screen informations\n"
-    printf "        disks : show disks informations\n"
-   
-    printf "\n"
-    printf "        additional arguments, passed after the first argument:\n"
-    printf "        -e : explain from there this command has this information, show the original command\n"
-    printf "        -s : Make the output simpler and beautiful\n"
-    printf "        -l : use the less command to not litter your terminal\n"
 
+function help_f (){
+    printf "Aioi, one command for all system informations on linux\n"
+    printf "        Usage:\n"
+    printf "        help    : Show this message\n"
+    printf "        ram     : Show ram informations, usage\n"
+    printf "        cpu     : Show cpu informations, usage\n"   
+    printf "        gpu     : Show gpu informations, usage\n"
+    printf "        network : Show network informations\n"
+    printf "        screen  : Show screen informations\n"
+    printf "        disks   : Show disks informations\n"
+    printf "        bios    : Show bios (or uefi) and motherboard informations\n"
+    printf "        errors  : Show errors of your system\n"
+    printf "\n"
+    printf "        additional arguments, passed after the command\n"
+    printf "        -e : Show the original commands, and other useful commands\n"
+    printf "        -l : use the less command to not litter your terminal\n"
 return 0
 }
+
+function errors_f () {
+    if [[ "$explain" == "1" ]];then
+        printf "used commands:\n"
+        printf "journalctl -p err -b --no-pager --system\n"
+        printf "journalctl -p err -b --no-pager --dmesg\n"
+        printf "journalctl -p err -b --no-pager --user\n"
+        printf "journalctl -p err -b --no-pager\n"
+        printf "journalctl --disk-usage\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+        printf "Show system errors:\n"
+        journalctl -p err -b --no-pager --system
+        printf "\n"
+        printf "Show kernel errors:\n"
+        journalctl -p err -b --no-pager --dmesg
+        printf "\n"
+        printf "Show current user errors:\n"
+        journalctl -p err -b --no-pager --user
+        printf "\n" 
+        printf "Show how many space take the logs:\n"
+        journalctl --disk-usage
+    fi
+return 0
+}
+
+function bios_f () {
+    if [[ "$explain" == "1" ]];then
+        printf "Used commands:\n"
+        printf "efibootmgr -v\n"
+        printf "sudo dmidecode -t 0\n"
+        printf "sudo dmidecode -t 13\n"
+        printf "sudo dmidecode -t 3\n"
+        printf "sudo dmidecode --type baseboard\n"
+        printf "Other useful commands:\n"
+        printf "sudo inxi -M\n"
+        printf "sudo lshw\n"
+        printf "dmesg | grep DMI:\n"
+        printf "sudo dmidecode -t\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+        if [[ -d "/sys/firmware/efi" ]];then
+            printf "Showing UEFI boot order\n"
+            if [[ "$explain" == "3" ]];then
+                :
+            elif ! command -v efibootmgr &> /dev/null ;then
+                printf "command efibootmgr not found, install the package\n"
+            else
+                efibootmgr -v
+            fi
+        fi
+        if [ "$EUID" -ne 0 ];then 
+            printf "To show more bios informations, please run as root\n"
+            printf "Mini bios informations:\n"
+            cat /sys/devices/virtual/dmi/id/board_{vendor,name,version}
+
+        else
+            if [[ "$explain" == "3" ]];then
+                :
+            elif ! command -v dmidecode &> /dev/null ;then
+                printf "command dmidecode not found, install the package\n"
+                printf "Show small motherboard info:\n"
+                cat /sys/devices/virtual/dmi/id/board_{vendor,name,version}
+            else
+                printf "Show bios informations:\n"
+                sudo dmidecode -t 0
+                printf "Show other bios informations:\n"
+                sudo dmidecode -t 13
+                printf "show the most other bios informations:\n"
+                sudo dmidecode -t 3
+                printf "Show motherboard informations:\n"
+                sudo dmidecode --type baseboard
+            fi
+        fi
+    fi
+return 0
+}
+
 function disks_f () {
     if [[ "$explain" == "1" ]];then
         printf "used commands\n"
@@ -43,6 +119,7 @@ function disks_f () {
         printf "For checking badblocks:\n"
         printf "badblocks -nvs /dev/sdx\n"
         printf "Other helpful commands:\n"
+        printf "lsof ( path to mounted disk )\n"
         printf "cat /etc/fstab\n"
         printf "fdisk -l\n"
         printf "iotop -o\n"
@@ -50,101 +127,55 @@ function disks_f () {
         printf "Benchmarking:\n"
         printf "sudo hdparm -tT /dev/sdx\n"
         printf "dd if=/dev/zero of=benchfile bs=4k count=200000 && sync; rm benchfile\n"
-        printf "dd if=/dev/zero of=/dev/null && sync\n"
+        printf "dd if=/dev/zero of=/tmp/test2.img bs=512 count=1000 oflag=dsync\n"
     fi
     if [[ "$explain" == "0" ]];then
-                printf "Show information about the partitions\n"
-                lsblk --output NAME,SIZE,FSUSED,TYPE,MOUNTPOINT,FSTYPE
-                printf "\n"
-                printf "Show partitions UUID\n"
-                lsblk --output NAME,UUID
-                printf "\n"
-                printf "Show partition label and flags\n"
-                lsblk --output NAME,LABEL,PARTLABEL,PARTFLAGS
-                printf "\n"
-                if [ "$EUID" -ne 0 ];then 
-                printf "To show disk informations, please run as root\n"
-                else
-                    if [[ "$explain" == "3" ]];then
-                        :
-                    elif ! command -v lshw &> /dev/null ;then
-                        printf "command lshw not found, using other commands, for better informations install the package\n"
-                        if [[ "$explain" == "3" ]];then
-                            :
-                        elif ! command -v lshw &> /dev/null ;then
-                            printf "command hdparm not found, using other commands, for better informations install the package\n"
-                        else
-                            sudo hdparm -I /dev/sda
-                        fi
-                    else
-                        printf "Show disk informations\n"
-                        lshw -class disk -class storage
-                        printf "\n"
-                        printf "Show simple disk names\n"
-                        lshw -short -C disk
-                    fi
-                printf "\n"
-                printf "Show disk read writes in real time\n"
+        printf "Show information about the partitions\n"
+        lsblk --output NAME,SIZE,FSUSED,TYPE,MOUNTPOINT,FSTYPE
+        printf "\n"
+        printf "Show partitions UUID\n"
+        lsblk --output NAME,UUID
+        printf "\n"
+        printf "Show partition label and flags\n"
+        lsblk --output NAME,LABEL,PARTLABEL,PARTFLAGS
+        printf "\n"
+        if [ "$EUID" -ne 0 ];then 
+            printf "To show disk informations, please run as root\n"
+        else
+            if [[ "$explain" == "3" ]];then
+                :
+            elif ! command -v lshw &> /dev/null ;then
+                printf "command lshw not found, using other commands, for better informations install the package\n"
                 if [[ "$explain" == "3" ]];then
-                        :
-                    elif ! command -v iostat &> /dev/null ;then
-                        printf "command iostat not found, install the iotop package\n"
-                    else
-                        sudo iostat --pretty --human
+                    :
+                elif ! command -v hdparm &> /dev/null ;then
+                    printf "command hdparm not found, install the package\n"
+                else
+                    sudo hdparm -I $(lsblk --output NAME | sed '/^[[:alpha:]]*$/!d' | egrep -v "NAME" | while read line; do echo /dev/${line}; done)
                 fi
+            else
+                printf "Show disk informations\n"
+                lshw -class disk -class storage
+                printf "\n"
+                printf "Show simple disk names\n"
+                lshw -short -C disk
+            fi
+            printf "\n"
+            printf "Show disk read writes in real time\n"
+            if [[ "$explain" == "3" ]];then
+                :
+            elif ! command -v iostat &> /dev/null ;then
+                printf "command iostat not found, install the iotop package\n"
+            else
+                sudo iostat --pretty --human
+            fi
             printf "For disk health, look at the -e argument\n"
         fi
     fi
 return 0
 }
+
 function network_f () {
-    if [[ "$explain" == "0" ]];then
-        printf "Network interfaces informations:\n"
-        if [[ "$explain" == "3" ]];then
-            :
-            elif ! command -v ifconfig &> /dev/null ;then
-                printf "command ifconfig not found, using other commands, for better informations install the package\n"
-                ip a
-            else
-                ifconfig
-            fi
-            printf "show setted DNS servers:\n"
-            grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf
-            printf "Single test whot DNS server will be used:\n"
-            dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1
-            printf "\n"
-            printf "NTP status, systemd based:\n"
-            timedatectl status
-            printf "used NTP servers, systemd based:\n"
-            cat /etc/systemd/timesyncd.conf | grep org
-            printf "Full config at /etc/systemd/timesyncd.conf\n"
-            if [[ "$explain" == "3" ]];then
-                :
-            elif ! command -v ntpq &> /dev/null ;then
-                :
-            else
-                printf "NTP status, ntpq command\n"
-                ntpq -pn
-            fi
-            printf "\n"
-            printf "Show ARP table:\n"
-            arp -e
-            printf "\n"
-            printf "dhcp info:\n"
-            systemctl status dhcpcd
-            cat /var/lib/dhcp/dhclient.leases
-            printf "\n"
-            printf "Show routes\n"
-            ip route
-            printf "\n"
-            printf "Show open ports:\n"
-            lsof -i
-            if [ "$EUID" -ne 0 ];then 
-                printf "Running as root will show open ports by other users\n"
-            else
-                :
-            fi
-    fi
     if [[ "$explain" == "1" ]];then
         printf "Used commands:\n"
         printf "ip a\n"
@@ -164,20 +195,65 @@ function network_f () {
         printf "netstat -rn\n"
         printf "ntpstat\n"
     fi
+    if [[ "$explain" == "0" ]];then
+        printf "Network interfaces informations:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v ifconfig &> /dev/null ;then
+            printf "command ifconfig not found, using other commands, for better informations install the package\n"
+            ip a
+        else
+            ifconfig
+        fi
+        printf "show setted DNS servers:\n"
+        grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf
+        printf "Single test whot DNS server will be used:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v dig &> /dev/null ;then
+            printf "command dig not found, install the package\n"
+        else
+            dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1
+        fi
+        printf "\n"
+        printf "NTP status, systemd based:\n"
+        timedatectl status
+        printf "used NTP servers, systemd based:\n"
+        cat /etc/systemd/timesyncd.conf | grep org
+        printf "Full config at /etc/systemd/timesyncd.conf\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v ntpq &> /dev/null ;then
+            :
+        else
+            printf "NTP status, ntpq command\n"
+            ntpq -pn
+        fi
+        printf "\n"
+        printf "Show ARP table:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v arp &> /dev/null ;then
+            printf "command arp not found, install the package\n"
+        else
+            arp -e
+        fi
+        printf "\n"
+        printf "Show routes\n"
+        ip route
+        printf "\n"
+        printf "Show open ports:\n"
+        lsof -i
+        if [ "$EUID" -ne 0 ];then 
+            printf "Running as root will show open ports by other users\n"
+        else
+            :
+        fi
+    fi
 return 0
 }
 
 function screen_f () {
-    if [[ "$explain" == "0" ]];then
-        printf "Show Monitor informations:\n"
-        if [[ "$explain" == "3" ]];then
-                :
-            elif ! command -v parse-edid &> /dev/null ;then
-                printf "parse-edid command not found, install the package for it\n"
-            else
-                ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
-        fi
-    fi
     if [[ "$explain" == "1" ]];then
         printf "Used command:\n"
         printf 'ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}\n'
@@ -187,6 +263,16 @@ function screen_f () {
         printf "xrandr --prop\n"
         printf "xrandr --verbose\n"
         printf "lshw -c display\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+        printf "Show Monitor informations:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v parse-edid &> /dev/null ;then
+            printf "parse-edid command not found, install the package for it\n"
+        else
+            ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
+        fi
     fi
 return 0
 }
@@ -261,25 +347,8 @@ function gpu_f () {
     fi
 return 0
 }
+
 function cpu_f () {
-    if [[ "$explain" == "0" ]];then
-    printf "To show cpu usage use the htop command\n"
-    printf "To show informations about the usage, use the the mpstat –P ALL command\n"
-    printf "How to read the mpstat command:\n"
-    printf "\n"
-    printf "usr –  cpu usage at the user level
-nice –  cpu usage for user processes labeled “nice”
-sys –  cpu usage at the system (Linux kernel) level
-iowait –  cpu usage idling waiting on a disk read/write
-irq –  cpu usage handling hardware interrupts
-soft –  cpu usage handing software interrupts
-steal –  cpu usage being forced to wait for a hypervisor handling other virtual processors
-guest –  cpu usage spent running a virtual processor
-idle –  cpu usage on idle time (no processes, and not waiting on a disk read/write)\n"
-    printf "\n"
-    printf "CPU informations:\n"
-    lscpu
-    fi
     if [[ "$explain" == "1" ]];then
     printf "Used information command:\n"
     printf "lscpu\n"
@@ -290,6 +359,31 @@ idle –  cpu usage on idle time (no processes, and not waiting on a disk read/w
     printf "lshw -class processor\n"
     printf "benchmark / stress command:\n"
     printf "stress --cpu $(nproc)\n"
+    fi
+    if [[ "$explain" == "0" ]];then
+        printf "To show cpu usage use the htop command\n"
+        printf "To show informations about the usage, use the the mpstat –P ALL command\n"
+        printf "\n"
+        printf "How to read the mpstat command:\n"
+        printf "usr – cpu usage at the user level\n"
+        printf "nice – cpu usage for user processes labeled with nice\n"
+        printf "sys – cpu usage at the system (Linux kernel) level\n"
+        printf "iowait – cpu usage idling waiting on a disk read/write\n"
+        printf "irq – cpu usage handling hardware interrupts\n"
+        printf "soft – cpu usage handing software interrupts\n"
+        printf "steal – cpu usage being forced to wait for a hypervisor handling other virtual processors\n"
+        printf "guest –  cpu usage spent running a virtual processor\n"
+        printf "idle –  cpu usage on idle time (no processes, and not waiting on a disk read/write)\n"
+        printf "\n"
+        printf "CPU informations:\n"
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v lscpu &> /dev/null ;then
+            printf "command lscpu not found, using other commands, for better informations install the package\n"
+            cat /proc/cpuinfo
+        else
+            lscpu
+        fi
     fi
 return 0
 }
@@ -302,7 +396,7 @@ function ram_f () {
         printf "RAM usage:\n"
         printf "dmidecode --type memory\n"
         printf "cat /proc/sys/vm/swappiness\n"
-        fi
+    fi
     if [[ "$explain" == "0" ]];then
         free -h -w
         printf 'More specific informations about usage are avaible under "less /proc/meminfo" command'
@@ -317,28 +411,23 @@ function ram_f () {
         else
             dmidecode --type memory
         fi
-        printf "\n"
-        printf "\n"
         printf "Setted swappiness:\n"
         cat /proc/sys/vm/swappiness
     fi
-    return 0
+return 0
 }
+
 if [[ -z ${1} ]];then
         help_f
 fi
 if [[ "$2" == "-e" ]];then
         explain=1
-elif [[ "$2" == "-s" ]];then
-        simple=1
 elif  [[ "$2" == "-l" ]];then
         lessc=1
 fi
 
 if [[ "$3" == "-e" ]];then
     explain=1
-elif [[ "$3" == "-s" ]];then
-    simple=1
 elif  [[ "$3" == "-l" ]];then
         lessc=1
 fi
@@ -385,22 +474,20 @@ while  [ ! -z "$1" ]; do
         else
             disks_f
         fi    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    elif [[ "$1" == "bios" ]];then
+        if [[ "$lessc" == "1" ]];then
+            bios_f | less
+        else
+            bios_f
+        fi    
+    elif [[ "$1" == "errors" ]];then
+        if [[ "$lessc" == "1" ]];then
+            errors_f | less
+        else
+            errors_f
+        fi    
+    else
+        help_f
     fi
 shift
 done
