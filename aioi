@@ -271,7 +271,7 @@ function screen_f () {
         elif ! command -v parse-edid &> /dev/null ;then
             printf "parse-edid command not found, install the package for it\n"
         else
-            ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}"
+            ls /sys/class/drm/*/edid | xargs -i{} sh -c "echo {}; parse-edid < {}" 2> /dev/null | grep -vwE "(class|Correct)"
         fi
     fi
 return 0
