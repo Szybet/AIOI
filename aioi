@@ -1,7 +1,6 @@
 #!/bin/bash
 explain=0
 lessc=0
-
 function help_f (){
     printf "Aioi, one command for all system informations on linux\n"
     printf "        Usage:\n"
@@ -180,10 +179,12 @@ function network_f () {
         printf "Used commands:\n"
         printf "ip a\n"
         printf "ifconfig\n"
+        printf "systemctl status NetworkManager\n"
         printf "grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf\n"
-        printf "dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1\n"
+        printf "dig google.com\n"
         printf "timedatectl status\n"
         printf "cat /etc/systemd/timesyncd.conf | grep org\n"
+        printf "Full config for systemd NTP at /etc/systemd/timesyncd.conf\n"
         printf "ntpq -pn\n"
         printf "arp -e\n"
         printf "systemctl status dhcpcd\n"
@@ -191,7 +192,6 @@ function network_f () {
         printf "ip route\n"
         printf "lsof -i\n"
         printf "Other usefull commands:\n"
-        printf "systemctl status NetworkManager\n"
         printf "netstat -rn\n"
         printf "ntpstat\n"
     fi
@@ -203,24 +203,58 @@ function network_f () {
             printf "command ifconfig not found, using other commands, for better informations install the package\n"
             ip a
         else
-            ifconfig
+            ifconfig -a
         fi
-        printf "show setted DNS servers:\n"
-        grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf
-        printf "Single test whot DNS server will be used:\n"
+        printf "Show public IP received from api.apifi.org:\n"
+        curl http://api.ipify.org
+        printf "\n"
+        printf "\n"
+        printf "Show Network Manager status\n"
+        systemctl --output=short status NetworkManager.service 2>1
+        printf "\n"
+        printf "Show systemd-network status\n"
+        systemctl --output=short status systemd-networkd.service 2>1
+        printf "\n"
         if [[ "$explain" == "3" ]];then
             :
         elif ! command -v dig &> /dev/null ;then
+            printf "show setted DNS servers:\n"
+            grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf
             printf "command dig not found, install the package\n"
         else
-            dig duckduckgo.com | grep SERVER | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1
+            printf "checking every DNS server from /etc/resolv.conf:\n"
+            lines=$(grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf | wc -l)
+           while [ $lines -gt 0 ];
+            do
+                dnsserver=$(grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' /etc/resolv.conf | head -$lines | tail +$lines)
+                printf "Status for DNS server $dnsserver:\n"
+                diggit=$(dig @$dnsserver google.com)
+                answercheck=$(echo $diggit | grep -o "ANSWER: 1")
+                if [[ -z ${answercheck} ]];then
+                    printf "Answer not received, problems aquires\n"
+                else
+                    printf "Working correctly\n"
+                fi
+                lines=$(($lines-1))
+            done
         fi
         printf "\n"
-        printf "NTP status, systemd based:\n"
+        printf "Show DNS by systemd:\n"
+        printf "Show systemd service status:\n"
+        systemctl --output=short status systemd-resolved.service 2>1
+        printf "\n"
+        printf "Show Specific status of this service\n"
+        resolvectl status
+        printf "\n"
+        printf "NTP status:\n"
+        printf "Systemd service status for NTP\n"
+        systemctl --output=short status systemd-timesyncd.service 2>1
+        printf "\n"
+        printf "Show time status\n"
         timedatectl status
+        printf "\n"
         printf "used NTP servers, systemd based:\n"
-        cat /etc/systemd/timesyncd.conf | grep org
-        printf "Full config at /etc/systemd/timesyncd.conf\n"
+        cat /etc/systemd/timesyncd.conf | grep NTP
         if [[ "$explain" == "3" ]];then
             :
         elif ! command -v ntpq &> /dev/null ;then
@@ -239,7 +273,7 @@ function network_f () {
             arp -e
         fi
         printf "\n"
-        printf "Show routes\n"
+        printf "Show routes, default gateway\n"
         ip route
         printf "\n"
         printf "Show open ports:\n"
