@@ -191,16 +191,14 @@ function network_f () {
         printf "cat /var/lib/dhcp/dhclient.leases\n"
         printf "ip route\n"
         printf "lsof -i\n"
-        printf "Other usefull commands:\n"
-        printf "netstat -rn\n"
-        printf "ntpstat\n"
+        printf "netstat -antplF\n"
     fi
     if [[ "$explain" == "0" ]];then
         printf "Network interfaces informations:\n"
         if [[ "$explain" == "3" ]];then
             :
         elif ! command -v ifconfig &> /dev/null ;then
-            printf "command ifconfig not found, using other commands, for better informations install the package\n"
+            printf "command ifconfig not found, using ip command, for better informations install the package\n"
             ip a
         else
             ifconfig -a
@@ -242,9 +240,7 @@ function network_f () {
         printf "Show DNS by systemd:\n"
         printf "Show systemd service status:\n"
         systemctl --output=short status systemd-resolved.service 2>1
-        printf "\n"
-        printf "Show Specific status of this service\n"
-        resolvectl status
+        printf "For showing Specific status of this service, run resolvectl status\n"
         printf "\n"
         printf "NTP status:\n"
         printf "Systemd service status for NTP\n"
@@ -277,12 +273,20 @@ function network_f () {
         ip route
         printf "\n"
         printf "Show open ports:\n"
-        lsof -i
+        if [[ "$explain" == "3" ]];then
+            :
+        elif ! command -v parse-edid &> /dev/null ;then
+            printf "lsof command not found, install the package for it, using netstat command\n"
+            netstat -antplF
+        else
+            lsof -i
+        fi
         if [ "$EUID" -ne 0 ];then 
             printf "Running as root will show open ports by other users\n"
         else
             :
         fi
+        rm 1
     fi
 return 0
 }
@@ -341,8 +345,9 @@ function gpu_f () {
         elif ! command -v glxinfo &> /dev/null ;then
             printf "glxinfo command not found, install the package for it\n"
         else
-            glxinfo -B
+            glxinfo -B | sed '/^$/d'
         fi
+        printf "\n"
         printf "Specific GPU usage commands:\n"
         gpuinfo=$(lspci | grep ' VGA ' | cut -d" " -f 1 | xargs -i lspci -v -k -s {})
         yesnvidia=$(echo $gpuinfo | grep -oih 'nvidia')
@@ -396,7 +401,13 @@ function cpu_f () {
     fi
     if [[ "$explain" == "0" ]];then
         printf "To show cpu usage use the htop command\n"
-        printf "To show informations about the usage, use the the mpstat –P ALL command\n"
+        if [[ "$explain" == "3" ]];then
+        :
+        elif  ! command -v mpstat &> /dev/null;then
+            echo "mpstat command could not be found, install the package for it\n"
+        else
+            mpstat -P ALL
+        fi
         printf "\n"
         printf "How to read the mpstat command:\n"
         printf "usr – cpu usage at the user level\n"
@@ -445,6 +456,7 @@ function ram_f () {
         else
             dmidecode --type memory
         fi
+        printf "\n"    
         printf "Setted swappiness:\n"
         cat /proc/sys/vm/swappiness
     fi
@@ -520,8 +532,6 @@ while  [ ! -z "$1" ]; do
         else
             errors_f
         fi    
-    else
-        help_f
     fi
 shift
 done
