@@ -275,11 +275,11 @@ function network_f () {
         printf "Show open ports:\n"
         if [[ "$explain" == "3" ]];then
             :
-        elif ! command -v parse-edid &> /dev/null ;then
-            printf "lsof command not found, install the package for it, using netstat command\n"
-            netstat -antplF
-        else
+        elif ! command -v netstat &> /dev/null ;then
+            printf "netstat command not found, install the package for it, using lsof command\n"
             lsof -i
+        else
+            netstat -natp
         fi
         if [ "$EUID" -ne 0 ];then 
             printf "Running as root will show open ports by other users\n"
