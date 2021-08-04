@@ -1,3 +1,4 @@
+use core::num;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -153,6 +154,8 @@ impl Cpuinfo {
         cpucachedata = Cpucaches {
             indexes: hashinsert,
         };
+        let mut firstchange: bool = true;
+        let mut splitchanged: i32 = 0;
 
         for (stringindex, structindex) in cpucachedata.indexes {
             let instanc: i32 = stringindex.replace("index", "").parse().unwrap();
@@ -163,7 +166,30 @@ impl Cpuinfo {
                 size = size * structindex.shared_end.clone();
                 psychical_mem_chip = psychical_mem_chip + &structindex.shared_end.to_string();
             } else {
-                psychical_mem_chip = psychical_mem_chip + "1";
+                let numberofthreads = self.threads.clone() - 1;
+                let mut multiply = 0;
+                for corenumber in 1..self.threads {
+                    let mut pathtocores: String =
+                        String::from("/sys/devices/system/cpu/cpu") + &corenumber.to_string();
+                    pathtocores = pathtocores + "/cache/index";
+                    pathtocores = pathtocores + &instanc.to_string();
+                    pathtocores = pathtocores + "/shared_cpu_list";
+                    let coresfile = File::open(&pathtocores).unwrap();
+                    let readedbuf = BufReader::new(coresfile);
+                    let mut readedbuf = readedbuf.lines();
+                    let readedlist: String = readedbuf.nth(0).unwrap().unwrap();
+                    let mut splittedlist = readedlist.split("-");
+                    let split_end: i32 = splittedlist.nth(1).unwrap().parse().unwrap();
+
+                    if splitchanged != split_end {
+                        splitchanged = split_end;
+                        multiply = multiply + 1;
+                    } else {
+                        splitchanged = split_end;
+                    }
+                }
+                size = size * multiply;
+                psychical_mem_chip = psychical_mem_chip + &multiply.to_string();
             }
             let exportstruct = Cache_inf_hr {
                 level: structindex.level,
@@ -173,12 +199,6 @@ impl Cpuinfo {
             };
             self.cash.push(exportstruct);
         }
-        // https://en.wikichip.org/wiki/intel/core_i5/i5-8300h
-        // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
-        // https://www.google.com/search?q=8192%20KB%20to%20mb
-
-        //https://superuser.com/questions/405355/meaning-of-files-in-cpu-folder-of-linux
-        // https://unix.stackexchange.com/questions/113555/when-speaking-about-cache-size-of-a-cpu-we-only-need-the-size-of-the-cache-at-t
         println!("{:?}", &self);
     }
 
@@ -209,19 +229,8 @@ impl Cpuinfo {
     }
 
     pub fn new() -> Cpuinfo {
-        /*
-        Cacheinformation {
-            level: 0,
-            size: 0,
-            shared_beginning: 0,
-            shared_end: 0,
-            shared_type: None,
-        };
-        */
-
         let index = HashMap::new();
         Cpucaches { indexes: index };
-
         Cpuinfo {
             modelname: None,
             architecture: 0,
