@@ -1,21 +1,16 @@
-use core::num;
+use log::error;
 use log::info;
-use log::{debug, error, log_enabled, Level};
 use nix::sys::statvfs::statvfs;
-use pretty_env_logger::env_logger;
 use regex::Regex;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs;
 use std::fs::File;
-use std::hash::Hash;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
 use std::process;
-use std::process::Command;
 use std::str;
-use std::{env, path};
 
 macro_rules! cast {
     ($x:expr) => {
@@ -53,7 +48,6 @@ pub struct Partitioninfo {
 impl Disksinfo {
     pub fn disk(mut self) {
         // Path to disks
-        let mut disk_name_check: String = String::new();
         let mut paths_disks: Vec<_> = fs::read_dir("/sys/block/")
             .unwrap()
             .map(|r| r.unwrap())
@@ -63,7 +57,7 @@ impl Disksinfo {
         // For every disk
         for path_disk in paths_disks {
             let mut partitions_hash: HashMap<String, Partitioninfo> = HashMap::new();
-            let mut path_disk: String = path_disk.path().display().to_string();
+            let path_disk: String = path_disk.path().display().to_string();
             info!("path disk: {:?}", path_disk);
             let name = path_disk.replace("/sys/block/", "");
             info!("name: {:?}", name);
@@ -85,7 +79,7 @@ impl Disksinfo {
             info!("size of disk: {}", size_disk_mb);
 
             // Getting partitions path
-            let mut paths_partitions: Vec<_> = fs::read_dir(&path_disk).unwrap().collect();
+            let paths_partitions: Vec<_> = fs::read_dir(&path_disk).unwrap().collect();
             let mut names_partitions_only: Vec<String> = Vec::new();
             let mut regexexpression = path_disk.clone();
             regexexpression = regexexpression + &String::from(r"/\b");
@@ -176,7 +170,7 @@ impl Disksinfo {
             let mut part_fs: Option<&str>;
             let mut part_mount: Option<&str>;
             for line_mounted in &mut lines_mounted {
-                let mut line_mounted: String = line_mounted.unwrap();
+                let line_mounted: String = line_mounted.unwrap();
                 for name_partition in &names_partitions_only {
                     if line_mounted.contains(name_partition) {
                         info!("line mounted: {:?}", &line_mounted);
