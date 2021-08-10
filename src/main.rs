@@ -20,5 +20,4 @@ fn main() {
             _ => println!("błędna opcja: {:?}", { &cliarg }),
         }
     }
-    disk::Disksinfo::disk(disk::Disksinfo::new());
 }

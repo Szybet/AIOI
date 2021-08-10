@@ -1,12 +1,9 @@
-use core::num;
-use std::collections::HashMap;
-use std::fs;
+use log::info;
 use std::fs::File;
-use std::hash::Hash;
+use std::fs::{self, DirEntry};
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::process;
-use std::str;
 
 #[derive(Debug)]
 pub struct Cpuinfo {
@@ -17,189 +14,133 @@ pub struct Cpuinfo {
     maxmhz: i32,
     minmhz: i32,
     cpufreq: Vec<i32>,
-    cash: Vec<Cache_inf_hr>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Cacheinformation {
-    level: i32,
-    size: Option<String>,
-    shared_beginning: i32,
-    shared_end: i32,
-    shared_type: Option<String>,
+    cache: Vec<Cache>,
 }
 
 #[derive(Debug)]
-pub struct Cache_inf_hr {
+struct Cache {
     level: i32,
     instance: i32,
-    size_in_K: i32,
+    size_in_k: i32,
     physical_memory: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct Cpucaches {
-    indexes: HashMap<String, Cacheinformation>,
 }
 
 impl Cpuinfo {
     pub fn cpu(mut self) {
-        println!("Gathering cpu informations");
-
+        info!("Gathering cpu informations");
         let file = File::open("/proc/cpuinfo").unwrap();
         let file = BufReader::new(file);
-
         let mut count: i32 = 0;
         let mut lines = file.lines();
+        // Get cpu informations from first lines, and then the cpu speed from other lines
         for line in &mut lines {
             let linestring: String = line.unwrap();
-            // Get cpu informations from first lines
-            if count < 28 {
-                count = count + 1;
-
-                if linestring.contains("model name") {
-                    let linestring = linestring.replace("model name\t: ", "");
-                    self.modelname = Some(linestring);
-                }
-                if linestring.contains("model name") {
-                    let linestring = linestring.replace("model name\t: ", "");
-                    self.modelname = Some(linestring);
-                }
-                if linestring.contains("flags\t\t:") {
-                    if linestring.contains("lm") {
-                        self.architecture = 64;
-                    } else if linestring.contains("pm") {
-                        self.architecture = 32;
-                    } else if linestring.contains("rl") {
-                        self.architecture = 16;
-                    }
-                }
-                if linestring.contains("cpu cores\t:") {
-                    let linestring = linestring.replace("cpu cores\t: ", "");
-                    let corecount: i32 = linestring.parse().unwrap();
-                    self.cores = corecount;
-                }
-                if linestring.contains("siblings\t:") {
-                    let linestring = linestring.replace("siblings\t: ", "");
-                    let threadscount: i32 = linestring.parse().unwrap();
-                    self.threads = threadscount;
-                }
-            }
-            // Get cpu speed per core
-            if linestring.contains("cpu MHz") {
-                let operline = linestring.replace("cpu MHz\t\t: ", "");
-                let operline = operline.split(".").nth(0).unwrap();
-                //mhzvector.push(operline.parse().unwrap());
-                self.cpufreq.push(operline.parse().unwrap());
-            }
+            count = Cpuinfo::basic_speed_info(&mut self, linestring, count);
         }
 
         // Get maxfreq and min freq from sys files
-        let pathmax: String = String::from("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq");
-        let pathmin: String = String::from("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq");
-        Cpuinfo::freqlimit(pathmax, &mut self.maxmhz);
-        Cpuinfo::freqlimit(pathmin, &mut self.minmhz);
+        let path_max: String =
+            String::from("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq");
+        let path_min: String =
+            String::from("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq");
+        Cpuinfo::freqlimit(path_max, &mut self.maxmhz);
+        Cpuinfo::freqlimit(path_min, &mut self.minmhz);
 
         // Caches
-
-        let paths = fs::read_dir("/sys/devices/system/cpu/cpu0/cache/").unwrap();
-
-        let mut cpucachedata = Cpucaches {
-            indexes: HashMap::new(),
-        };
-        let mut hashinsert = HashMap::new();
-
+        let mut paths: Vec<_> = fs::read_dir("/sys/devices/system/cpu/cpu0/cache/")
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        paths.sort_by_key(|dir| dir.path());
         for path in paths {
-            let path: String = path.unwrap().path().display().to_string();
-            let indexname = path.replace("/sys/devices/system/cpu/cpu0/cache/", "");
-            let mut gatheredinformations = Cacheinformation {
-                level: 0,
-                size: None,
-                shared_beginning: 0,
-                shared_end: 0,
-                shared_type: None,
-            };
-            if indexname != "uevent" {
-                let size = Self::readcachefile(String::from("/size"), indexname.clone());
-                let level = Self::readcachefile(String::from("/level"), indexname.clone())
-                    .parse()
-                    .unwrap();
-                let shared_cpu_list =
-                    Self::readcachefile(String::from("/shared_cpu_list"), indexname.clone());
-                let mut split_begin: i32 = 0;
-                let mut split_end: i32 = 0;
-                let mut split_type: String = String::new();
-                if shared_cpu_list.contains(",") {
-                    let mut splitting = shared_cpu_list.split(",");
-                    split_begin = splitting.nth(0).unwrap().parse().unwrap();
-                    split_end = splitting.nth(0).unwrap().parse().unwrap();
-                    split_type = String::from(",");
-                }
-                if shared_cpu_list.contains("-") {
-                    let mut splitting = shared_cpu_list.split("-");
-                    split_begin = splitting.nth(0).unwrap().parse().unwrap();
-                    split_end = splitting.nth(0).unwrap().parse().unwrap();
-                    split_type = String::from("-");
-                }
-                gatheredinformations = Cacheinformation {
-                    level: level,
-                    size: Some(size),
-                    shared_beginning: split_begin,
-                    shared_end: split_end,
-                    shared_type: Some(split_type),
-                };
-                hashinsert.insert(indexname, gatheredinformations);
-            }
+            Cpuinfo::cpu_cache(&mut self, path);
         }
-        cpucachedata = Cpucaches {
-            indexes: hashinsert,
-        };
-        let mut firstchange: bool = true;
-        let mut splitchanged: i32 = 0;
+        info!("{:?}", &self);
+    }
 
-        for (stringindex, structindex) in cpucachedata.indexes {
-            let instanc: i32 = stringindex.replace("index", "").parse().unwrap();
-            let sizeparsed = structindex.size.unwrap().replace("K", "").parse().unwrap();
-            let mut size: i32 = sizeparsed;
-            let mut psychical_mem_chip: String = sizeparsed.to_string() + "x";
-            if structindex.shared_type.unwrap().contains(",") {
-                size = size * structindex.shared_end.clone();
-                psychical_mem_chip = psychical_mem_chip + &structindex.shared_end.to_string();
-            } else {
-                let numberofthreads = self.threads.clone() - 1;
-                let mut multiply = 0;
-                for corenumber in 1..self.threads {
-                    let mut pathtocores: String =
-                        String::from("/sys/devices/system/cpu/cpu") + &corenumber.to_string();
-                    pathtocores = pathtocores + "/cache/index";
-                    pathtocores = pathtocores + &instanc.to_string();
-                    pathtocores = pathtocores + "/shared_cpu_list";
-                    let coresfile = File::open(&pathtocores).unwrap();
-                    let readedbuf = BufReader::new(coresfile);
-                    let mut readedbuf = readedbuf.lines();
-                    let readedlist: String = readedbuf.nth(0).unwrap().unwrap();
-                    let mut splittedlist = readedlist.split("-");
-                    let split_end: i32 = splittedlist.nth(1).unwrap().parse().unwrap();
+    // Child Functions
 
-                    if splitchanged != split_end {
-                        splitchanged = split_end;
-                        multiply = multiply + 1;
-                    } else {
-                        splitchanged = split_end;
-                    }
+    pub fn cpu_cache(&mut self, path: DirEntry) {
+        // Get the needed informations
+        let path: String = path.path().display().to_string();
+        let indexname = path.replace("/sys/devices/system/cpu/cpu0/cache/", "");
+        if indexname != "uevent" {
+            let size = Self::readcachefile(String::from("/size"), indexname.clone());
+            let level = Self::readcachefile(String::from("/level"), indexname.clone())
+                .parse()
+                .unwrap();
+            // Make the output pretty
+            let instanc: i32 = indexname.replace("index", "").parse().unwrap();
+            let mut size_k: i32 = size.replace("K", "").parse().unwrap();
+            let mut multiply = 0;
+            let mut shacpulist_changed: Vec<String> = Vec::new();
+            for corenumber in 0..self.threads {
+                let mut pathtocores: String =
+                    String::from("/sys/devices/system/cpu/cpu") + &corenumber.to_string();
+                pathtocores = pathtocores + "/cache/index";
+                pathtocores = pathtocores + &instanc.to_string();
+                pathtocores = pathtocores + "/shared_cpu_list";
+                let coresfile = File::open(&pathtocores).unwrap();
+                let readedbuf = BufReader::new(coresfile);
+                let mut readedbuf = readedbuf.lines();
+                let readedlist: String = readedbuf.nth(0).unwrap().unwrap();
+                if shacpulist_changed.contains(&readedlist) == false {
+                    multiply = multiply + 1;
+                    shacpulist_changed.push(readedlist)
                 }
-                size = size * multiply;
-                psychical_mem_chip = psychical_mem_chip + &multiply.to_string();
             }
-            let exportstruct = Cache_inf_hr {
-                level: structindex.level,
+            let mut psychical_mem_chip = size_k.to_string() + "x";
+            size_k = size_k * multiply;
+            psychical_mem_chip = psychical_mem_chip + &multiply.to_string();
+            let exportstruct = Cache {
+                level: level,
                 instance: instanc,
-                size_in_K: size,
+                size_in_k: size_k,
                 physical_memory: Some(psychical_mem_chip),
             };
-            self.cash.push(exportstruct);
+            self.cache.push(exportstruct);
         }
-        println!("{:?}", &self);
+    }
+
+    pub fn basic_speed_info(&mut self, linestring: String, mut count: i32) -> i32 {
+        if count < 28 {
+            count = count + 1;
+            if linestring.contains("model name") {
+                let linestring = linestring.replace("model name\t: ", "");
+                self.modelname = Some(linestring);
+            }
+            if linestring.contains("model name") {
+                let linestring = linestring.replace("model name\t: ", "");
+                self.modelname = Some(linestring);
+            }
+            if linestring.contains("flags\t\t:") {
+                if linestring.contains("lm") {
+                    self.architecture = 64;
+                } else if linestring.contains("pm") {
+                    self.architecture = 32;
+                } else if linestring.contains("rl") {
+                    self.architecture = 16;
+                }
+            }
+            if linestring.contains("cpu cores\t:") {
+                let linestring = linestring.replace("cpu cores\t: ", "");
+                let corecount: i32 = linestring.parse().unwrap();
+                self.cores = corecount;
+            }
+            if linestring.contains("siblings\t:") {
+                let linestring = linestring.replace("siblings\t: ", "");
+                let threadscount: i32 = linestring.parse().unwrap();
+                self.threads = threadscount;
+            }
+        }
+        // Get cpu speed per core
+        if linestring.contains("cpu MHz") {
+            let operline = linestring.replace("cpu MHz\t\t: ", "");
+            let operline = operline.split(".").nth(0).unwrap();
+            //mhzvector.push(operline.parse().unwrap());
+            self.cpufreq.push(operline.parse().unwrap());
+        }
+        count
     }
 
     pub fn readcachefile(indexfile: String, indexname: String) -> String {
@@ -229,8 +170,6 @@ impl Cpuinfo {
     }
 
     pub fn new() -> Cpuinfo {
-        let index = HashMap::new();
-        Cpucaches { indexes: index };
         Cpuinfo {
             modelname: None,
             architecture: 0,
@@ -239,7 +178,7 @@ impl Cpuinfo {
             maxmhz: 0,
             minmhz: 0,
             cpufreq: Vec::new(),
-            cash: Vec::new(),
+            cache: Vec::new(),
         }
     }
 }
