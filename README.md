@@ -1,2 +1,3 @@
 # AIOI
-Aioi, one command for all system informations on linux
+One command for all **usefull** system informations on linux
+data from low level, and rust
